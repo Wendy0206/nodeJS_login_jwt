@@ -53,14 +53,16 @@ app.use(function (req, res, next) {
   }
   res.locals.user = req.user;
   //console.log(req.user);
- 
+
   next();
 });
 
 // endpoint
 app.get("/", (req, res) => {
   if (req.user) {
-    return res.render("dashboard");
+    const postStatement = db.prepare("SELECT * FROM posts where authorid=?");
+    const posts = postStatement.all(req.user.userid);
+    return res.render("dashboard", { posts });
   }
   res.render("homepage");
 });
@@ -111,7 +113,7 @@ app.post("/login", (req, res) => {
 
   const ourTokenValue = jwt.sign(
     {
-      exp: Math.floor(Date.now() / 1000) + 3600 * 24,
+      exp: Math.floor(Date.now() / 1000) + 3600,
       skycolor: "blue",
       userid: userInQuestion.id,
       username: userInQuestion.username,
@@ -124,7 +126,7 @@ app.post("/login", (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
-    maxAge: 1000 * 3600 * 24,
+    maxAge: 1000 * 3600,
   });
   res.redirect("/");
 });
@@ -143,7 +145,7 @@ app.get("/create-post", mustBeLoggedIn, (req, res) => {
 function sharedPostValidation(req) {
   if (typeof req.body.title !== "string") req.body.title = "";
   if (typeof req.body.body !== "string") req.body.body = "";
-let errors=[]
+  let errors = [];
   //sanitize or strip out html code
   req.body.title = sanitizeHTML(req.body.title.trim(), {
     allowedTags: [],
@@ -153,43 +155,139 @@ let errors=[]
     allowedTags: [],
     allowedAttributes: [],
   });
-  
-  if (!req.body.body) errors=["You must provide content"]
-  if (!req.body.title) errors=["You must provide a  title"]
+
+  if (!req.body.body) errors = ["You must provide content"];
+  if (!req.body.title) errors = ["You must provide a  title"];
 
   return errors;
 }
 
+app.get("/edit-post/:id", (req, res) => {
+  // try to look up the post in question
+  const statement = db.prepare("SELECT * FROM posts WHERE id =?");
+  const post = statement.get(req.params.id);
 
-app.post("/create-post", mustBeLoggedIn, (req, res) => {
-
-  const errors = sharedPostValidation(req)
-  console.log(errors.length)
-  if (errors.length) {
-    return res.render("create-post", { errors});
+  //if post is false  if you're not the author redirect to homepage
+  if (!post || post.authorid !== req.user.userid) {
+    return res.redirect("/");
   }
 
-const ourStatement= db.prepare("INSERT INTO posts(createdDate, tittle, content,authorid ) VALUES(?,?,?,?)")
-const result = ourStatement.run(new Date.toISOString(), req.body.title, req.body.body, req.user.userid)
+
+
+  //otherwise render the editpost template
+  res.render("edit-post", { post });
+});
+
+
+
+// edit post update bd
+app.post("/edit-post/:id",mustBeLoggedIn, (req, res) => {
+  // try to look up the post in question
+  const statement = db.prepare("SELECT * FROM posts WHERE id =?");
+  const post = statement.get(req.params.id);
+
+  //if post is false and if you're not the author redirect to homepage
+  if (!post || post.authorid !== req.user.userid) {
+    return res.redirect("/");
+  }
  console.log(
     "Final line----------------------------------------------------------------------------------------------------------------------------------"
   );
-  console.log(req.user.userid)
+  console.log('we get there')
+  const errors = sharedPostValidation(req);
 
-const getPostStatement= db.prepare("SELECT * FROM posts WHERE ROWID= ?")
-const realPost= getPostStatement.get(result.lastInsertRowid)
-//res.redirect(`/post/${realPost.id`)
+  if (errors.lentgh) {
+    return res.render("edit-post", { errors });
+  }
+
+  const updateStatement = db.prepare(
+    "UPDATE posts SET title=?, content=? WHERE id = ?"
+  );
+  const updatePost = updateStatement.run(
+    req.body.title,
+    req.body.body,
+    req.params.id
+  );
+  res.redirect(`/post/${req.params.id}`);
 });
 
 
 
 
 
+// edit post update bd
+app.post("/delete-post/:id",mustBeLoggedIn, (req, res) => {
+  // try to look up the post in question
+  const statement = db.prepare("SELECT * FROM posts WHERE id =?");
+  const post = statement.get(req.params.id);
+
+  //if post is false and if you're not the author redirect to homepage
+  if (!post || post.authorid !== req.user.userid) {
+    return res.redirect("/");
+  }
+ console.log(
+    "Final line----------------------------------------------------------------------------------------------------------------------------------"
+  );
+  console.log('we get there')
+  const errors = sharedPostValidation(req);
+
+  if (errors.lentgh) {
+    return res.render("edit-post", { errors });
+  }
+
+  const deleteStatement = db.prepare(
+    "DELETE FROM posts WHERE id = ?"
+  );
+  constdeletePost = deleteStatement.run(
+    req.params.id
+  );
+  res.redirect("/");
+});
 
 
 
 
 
+app.get("/post/:id", (req, res) => {
+  const statement = db.prepare(
+    "SELECT posts.*, users.username FROM posts inner join users on posts.authorid=users.id WHERE posts.id =?"
+  );
+  const post = statement.get(req.params.id);
+  if (!post) {
+    return res.redirect("/");
+  }
+  const isAuthor= post.authorid===req.user.userid
+  res.render("single-post", {post, isAuthor} );
+});
+
+
+
+
+app.post("/create-post", mustBeLoggedIn, (req, res) => {
+  const errors = sharedPostValidation(req);
+
+  if (errors.length) {
+    return res.render("create-post", { errors });
+  }
+
+  const ourStatement = db.prepare(
+    "INSERT INTO posts(createdDate, title, content,authorid ) VALUES(?,?,?,?)"
+  );
+  const result = ourStatement.run(
+    new Date().toISOString(),
+    req.body.title,
+    req.body.body,
+    req.user.userid
+  );
+  console.log(
+    "Final line----------------------------------------------------------------------------------------------------------------------------------"
+  );
+  // console.log(req.user.userid)
+
+  const getPostStatement = db.prepare("SELECT * FROM posts WHERE ROWID= ?");
+  const realPost = getPostStatement.get(result.lastInsertRowid);
+  res.redirect(`/post/${realPost.id}`);
+});
 
 app.post("/register", (req, res) => {
   const errors = [];
@@ -235,7 +333,7 @@ app.post("/register", (req, res) => {
   // log the user in by giving them a cookie
   const ourTokenValue = jwt.sign(
     {
-      exp: Math.floor(Date.now() / 1000) + 3600 * 24,
+      exp: Math.floor(Date.now() / 1000) + 3600,
       skycolor: "blue",
       userid: ourUser.id,
       username: ourUser.username,
@@ -248,7 +346,7 @@ app.post("/register", (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
-    maxAge: 1000 * 3600 * 24,
+    maxAge: 1000 * 3600,
   });
 
   res.redirect("/");

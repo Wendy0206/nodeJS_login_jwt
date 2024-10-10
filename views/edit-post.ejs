@@ -3,21 +3,21 @@
 <body>
     <%- include('includes/header')  %>
        <main>
-  <form action="/create-post" method="POST">
+  <form action="/edit-post/<%= post.id %>" method="POST">
   <% errors.forEach(error => { %>
     <p class="notice"><%= error %></p>
  <% });%>
 
    <fieldset>
-   <legend>Create a new post</legend>
+   <legend>Edit post</legend>
    <label for="title"><small>Title</small></label>
-   <input type="text" id="title" name="title" autocomplete="on"/>
+   <input type="text" value="<%=post.title %>" id="title" name="title" autocomplete="on"/>
 
       <label for="body"><small>Content</small></label>
-      <textarea id="body" name="body"></textarea>
+      <textarea id="body" name="body"><%=post.content %></textarea>
   
    <br/>
-   <button>Save new post</button>
+   <button h>Save Changes</button>
    </fieldset>
   
   </form>

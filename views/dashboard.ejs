@@ -3,10 +3,15 @@
 <body>
     <%- include('includes/header')  %>
     <main>
-<h2>Welcome to your dashboard</h2>
-   <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor 
-    incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
-    exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+<h>Welcome <%=user.username%></h>
+  <ul>
+  <% posts.forEach(post=>{ %>
+<li><a href="/post/<%= post.id %>"> <%= post.title%></a> was posted on <%= new Date(post.createdDate).getMonth()+1%>/<%= new Date(post.createdDate).getDate()%>/<%= new Date(post.createdDate).getFullYear()%> </li>
+
+  <% })%>
+  
+  </ul>
+
     </main>
     <footer>
     <small>&copy; Our wonderful app</small>
