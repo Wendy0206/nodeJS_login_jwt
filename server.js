@@ -67,6 +67,13 @@ app.get("/", (req, res) => {
   res.render("homepage");
 });
 
+
+// endpoint test
+app.get(process.env.BASE_URL, (req, res) => {
+  res.send("Our test works");
+});
+
+
 // login endpoint
 app.get("/login/?", (req, res) => {
   if (req.user) {
