@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
@@ -58,18 +59,18 @@ app.use(function (req, res, next) {
 });
 
 // endpoint
-app.get("/", (req, res) => {
-  if (req.user) {
-    const postStatement = db.prepare("SELECT * FROM posts where authorid=?");
-    const posts = postStatement.all(req.user.userid);
-    return res.render("dashboard", { posts });
-  }
-  res.render("homepage");
-});
+// app.get("/", (req, res) => {
+//   if (req.user) {
+//     const postStatement = db.prepare("SELECT * FROM posts where authorid=?");
+//     const posts = postStatement.all(req.user.userid);
+//     return res.render("dashboard", { posts });
+//   }
+//   res.render("homepage");
+// });
 
 
 // endpoint test
-app.get(process.env.BASE_URL, (req, res) => {
+app.get("/", (req, res) => {
   res.send("Our test works");
 });
 
