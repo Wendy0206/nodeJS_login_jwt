@@ -1,38 +1,17 @@
 require("dotenv").config();
 
+
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
+const cors = require('cors')
 
 const sanitizeHTML = require("sanitize-html");
 
 const db = require("better-sqlite3")("ourApp.db");
 db.pragma("journal_mode = WAL");
 
-//database setup
-const createTables = db.transaction(() => {
-  db.prepare(
-    `
-   CREATE TABLE IF NOT EXISTS users(
-   id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    username STRING NOT NULL UNIQUE,
-     password STRING NOT NULL)`
-  ).run();
-
-  db.prepare(
-    `
-   CREATE TABLE IF NOT EXISTS posts(
-   id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    createdDate DATE,
-    title STRING NOT NULL,
-    content STRING NOT NULL,
-     authorid integer NOT NULL,
-     FOREIGN KEY (authorid) REFERENCES users (id))`
-  ).run();
-});
-
-//createTables();
 
 const app = express();
 
@@ -40,51 +19,47 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static("public"));
 app.use(cookieParser());
-
+app.use(cors())
 app.use(function (req, res, next) {
   res.locals.errors = [];
 
   // try to decode incoming cookies
   try {
-    const decoded = jwt.verify(req.cookies.ourSimpleApp, process.env.JWTSECRET);
+    const decoded = jwt.verify(req.cookies.ourCurrentUser, process.env.JWTSECRET);
 
     req.user = decoded;
   } catch (err) {
     req.user = false;
   }
   res.locals.user = req.user;
-  //console.log(req.user);
+  console.log("Hey look i get a user ",req.user);
 
   next();
 });
 
-// endpoint
-// app.get("/", (req, res) => {
-//   if (req.user) {
-//     const postStatement = db.prepare("SELECT * FROM posts where authorid=?");
-//     const posts = postStatement.all(req.user.userid);
-//     return res.render("dashboard", { posts });
-//   }
-//   res.render("homepage");
-// });
-
-
-// endpoint test
+//endpoint
 app.get("/", (req, res) => {
-  res.send("Our test works");
+  if (req.user) {
+    const postStatement = db.prepare("SELECT * FROM posts where authorid=?");
+    const posts = postStatement.all(req.user.userid);
+    return res.render("dashboard", { posts });
+  }
+  res.render("homepage");
 });
 
 
+
+
 // login endpoint
-app.get("/login/?", (req, res) => {
+app.get("/login/", (req, res) => {
   if (req.user) {
-    res.clearCookie("ourSimpleApp");
+    res.clearCookie("ourCurrentUser");
   }
   res.render("login");
 });
 
 app.get("/logout", (req, res) => {
-  res.clearCookie("ourSimpleApp");
+  res.clearCookie("ourCurrentUser");
   res.redirect("/");
 });
 
@@ -130,7 +105,7 @@ app.post("/login", (req, res) => {
   );
 
   //log the user in and give them a cookie
-  res.cookie("ourSimpleApp", ourTokenValue, {
+  res.cookie("ourCurrentUser", ourTokenValue, {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
@@ -138,6 +113,8 @@ app.post("/login", (req, res) => {
   });
   res.redirect("/");
 });
+
+
 
 function mustBeLoggedIn(req, res, next) {
   if (req.user) {
@@ -187,7 +164,6 @@ app.get("/edit-post/:id", (req, res) => {
 });
 
 
-
 // edit post update bd
 app.post("/edit-post/:id",mustBeLoggedIn, (req, res) => {
   // try to look up the post in question
@@ -198,10 +174,7 @@ app.post("/edit-post/:id",mustBeLoggedIn, (req, res) => {
   if (!post || post.authorid !== req.user.userid) {
     return res.redirect("/");
   }
- console.log(
-    "Final line----------------------------------------------------------------------------------------------------------------------------------"
-  );
-  console.log('we get there')
+
   const errors = sharedPostValidation(req);
 
   if (errors.lentgh) {
@@ -221,8 +194,6 @@ app.post("/edit-post/:id",mustBeLoggedIn, (req, res) => {
 
 
 
-
-
 // edit post update bd
 app.post("/delete-post/:id",mustBeLoggedIn, (req, res) => {
   // try to look up the post in question
@@ -233,10 +204,7 @@ app.post("/delete-post/:id",mustBeLoggedIn, (req, res) => {
   if (!post || post.authorid !== req.user.userid) {
     return res.redirect("/");
   }
- console.log(
-    "Final line----------------------------------------------------------------------------------------------------------------------------------"
-  );
-  console.log('we get there')
+
   const errors = sharedPostValidation(req);
 
   if (errors.lentgh) {
@@ -254,8 +222,6 @@ app.post("/delete-post/:id",mustBeLoggedIn, (req, res) => {
 
 
 
-
-
 app.get("/post/:id", (req, res) => {
   const statement = db.prepare(
     "SELECT posts.*, users.username FROM posts inner join users on posts.authorid=users.id WHERE posts.id =?"
@@ -267,8 +233,6 @@ app.get("/post/:id", (req, res) => {
   const isAuthor= post.authorid===req.user.userid
   res.render("single-post", {post, isAuthor} );
 });
-
-
 
 
 app.post("/create-post", mustBeLoggedIn, (req, res) => {
@@ -287,10 +251,7 @@ app.post("/create-post", mustBeLoggedIn, (req, res) => {
     req.body.body,
     req.user.userid
   );
-  console.log(
-    "Final line----------------------------------------------------------------------------------------------------------------------------------"
-  );
-  // console.log(req.user.userid)
+ 
 
   const getPostStatement = db.prepare("SELECT * FROM posts WHERE ROWID= ?");
   const realPost = getPostStatement.get(result.lastInsertRowid);
@@ -350,7 +311,7 @@ app.post("/register", (req, res) => {
   );
 
   //log the user in and give them a cookie
-  res.cookie("ourSimpleApp", ourTokenValue, {
+  res.cookie("ourCurrentUser", ourTokenValue, {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
@@ -359,5 +320,18 @@ app.post("/register", (req, res) => {
 
   res.redirect("/");
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 app.listen(3000);
